@@ -1,0 +1,471 @@
+---
+title: "MDS scVera"
+output: html_document
+date: '2022-08-02'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r packages, echo=FALSE, message=FALSE, warning=FALSE}
+
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(vcfR)
+library(ggpubr)
+library(reshape2)
+library(tidyr)
+library(knitr)
+library(data.table)
+library(R.utils)
+library(vtable)
+```
+
+
+
+# Stats from bcftools stats package
+```{r define_data, echo=FALSE, message=FALSE, warning=FALSE}
+#obtain all file names
+bcftool.files <- list.files("~/Desktop/scVar/MDS", pattern = "stats.txt", full.names = TRUE)
+
+
+# import all stats files and name
+names <- strsplit(bcftool.files, "/.")
+for (i in 1:length(bcftool.files)) { # for each file in the list
+   fileName <- bcftool.files[[i]] # save filename of element i
+   dataName <- names[[i]][[7]] # save data name of element i
+   tempData <- read.csv (fileName, stringsAsFactors=FALSE, sep="") # read csv file
+   assign (dataName, tempData, envir=.GlobalEnv)  # assign the results of file to the data named
+}
+#import all annotation files as a list
+
+annotation_list <-
+  list.files("~/Desktop/scVar/MDS",
+             pattern = "multianno.csv",
+             full.names = TRUE)  %>%
+  set_names(nm = (basename(.) %>% tools::file_path_sans_ext())) %>%
+  map(read.csv)
+
+
+#loading A_to_I edit sites table
+A_to_I_table <- fread("~/Downloads/A_to_I_TABLE1_hg38.txt.gz", select=c(1:9))
+colnames(A_to_I_table)<-c("Chr", "Start", "Ref", "Alt", "Strand","db","type","dbsnp","repeat_type")        
+A_to_I_table<-dplyr::mutate(A_to_I_table, editted="Yes" )
+
+#Adding a designations for genes in the pulldown
+Jordan_final.gene_metadata <- read.delim("~/Downloads/Jordan_final.gene_metadata.tsv")
+names(Jordan_final.gene_metadata)[names(Jordan_final.gene_metadata) == 'user_input'] <- 'Gene.refGene'
+
+# loading full tidy vcf files(these must be modified from the original and saved as a smaller file to facilitate loading)
+
+
+```
+
+```{r tidy_vcf, echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+###Bring in vcf files and annotations and merge them
+# loading full tidy vcf files(these must be modified from the original and saved as a smaller file to facilitate loading)
+vcf_p1236<-read.vcfR("~/Desktop/scVar/MDS/p1236.unfiltered.vcf.gz",verbose = FALSE)
+tidy_p1236<-vcfR2tidy(vcf_p1236,single_frame = TRUE) 
+tidy_p1236<-tidy_p1236$dat 
+tidy_p1236<-select(tidy_p1236, CHROM, POS, REF, ALT, QUAL, FILTER, DP, MQ, QD, gt_AD, gt_GT_alleles)
+colnames(tidy_p1236)<-c("Chr", "Start", "Ref", "Alt", "QUAL","filter", "DP","MQ", "QD", "gt_AD", "gt_alleles") 
+tidy_p1236<-separate(tidy_p1236, gt_AD, sep= ",", into =c("ref_DP", "alt_DP"), remove=TRUE)
+tidy_p1236<-mutate_at(tidy_p1236, c(10:11), as.numeric)
+tidy_p1236<-mutate(tidy_p1236, alt_ratio= alt_DP/(ref_DP + alt_DP))
+write.csv(tidy_p1236,file="~/Desktop/scVar/MDS/tidy_p1236", row.names = FALSE)
+
+vcf_p1485<-read.vcfR("~/Desktop/scVar/MDS/p1485.unfiltered.vcf.gz",verbose = FALSE)
+tidy_p1485<-vcfR2tidy(vcf_p1485,single_frame = TRUE) 
+tidy_p1485<-tidy_p1485$dat 
+tidy_p1485<-select(tidy_p1485, CHROM, POS, REF, ALT, QUAL, FILTER, DP, MQ, QD, gt_AD, gt_GT_alleles)
+colnames(tidy_p1485)<-c("Chr", "Start", "Ref", "Alt", "QUAL","filter", "DP","MQ", "QD", "gt_AD", "gt_alleles") 
+tidy_p1485<-separate(tidy_p1485, gt_AD, sep= ",", into =c("ref_DP", "alt_DP"), remove=TRUE)
+tidy_p1485<-mutate_at(tidy_p1485, c(10:11), as.numeric)
+tidy_p1485<-mutate(tidy_p1485, alt_ratio= alt_DP/(ref_DP + alt_DP))
+write.csv(tidy_p1485,file="~/Desktop/scVar/MDS/tidy_p1485", row.names = FALSE)
+
+vcf_p1595<-read.vcfR("~/Desktop/scVar/MDS/p1595.unfiltered.vcf.gz",verbose = FALSE)
+tidy_p1595<-vcfR2tidy(vcf_p1595,single_frame = TRUE) 
+tidy_p1595<-tidy_p1595$dat 
+tidy_p1595<-select(tidy_p1595, CHROM, POS, REF, ALT, QUAL, FILTER, DP, MQ, QD, gt_AD, gt_GT_alleles)
+colnames(tidy_p1595)<-c("Chr", "Start", "Ref", "Alt", "QUAL","filter", "DP","MQ", "QD", "gt_AD", "gt_alleles") 
+tidy_p1595<-separate(tidy_p1595, gt_AD, sep= ",", into =c("ref_DP", "alt_DP"), remove=TRUE)
+tidy_p1595<-mutate_at(tidy_p1595, c(10:11), as.numeric)
+tidy_p1595<-mutate(tidy_p1595, alt_ratio= alt_DP/(ref_DP + alt_DP))
+write.csv(tidy_p1595,file="~/Desktop/scVar/MDS/tidy_p1595", row.names = FALSE)
+
+vcf_p1726<-read.vcfR("~/Desktop/scVar/MDS/p1726.unfiltered.vcf.gz",verbose = FALSE)
+tidy_p1726<-vcfR2tidy(vcf_p1726,single_frame = TRUE) 
+tidy_p1726<-tidy_p1726$dat 
+tidy_p1726<-select(tidy_p1726, CHROM, POS, REF, ALT, QUAL, FILTER, DP, MQ, QD, gt_AD, gt_GT_alleles)
+colnames(tidy_p1726)<-c("Chr", "Start", "Ref", "Alt", "QUAL","filter", "DP","MQ", "QD", "gt_AD", "gt_alleles") 
+tidy_p1726<-separate(tidy_p1726, gt_AD, sep= ",", into =c("ref_DP", "alt_DP"), remove=TRUE)
+tidy_p1726<-mutate_at(tidy_p1726, c(10:11), as.numeric)
+tidy_p1726<-mutate(tidy_p1726, alt_ratio= alt_DP/(ref_DP + alt_DP))
+write.csv(tidy_p1726,file="~/Desktop/scVar/MDS/tidy_p1726", row.names = FALSE)
+
+vcf_p1748<-read.vcfR("~/Desktop/scVar/MDS/p1748.unfiltered.vcf.gz",verbose = FALSE)
+tidy_p1748<-vcfR2tidy(vcf_p1748,single_frame = TRUE) 
+tidy_p1748<-tidy_p1748$dat 
+tidy_p1748<-select(tidy_p1748, CHROM, POS, REF, ALT, QUAL, FILTER, DP, MQ, QD, gt_AD, gt_GT_alleles)
+colnames(tidy_p1748)<-c("Chr", "Start", "Ref", "Alt", "QUAL","filter", "DP","MQ", "QD", "gt_AD", "gt_alleles") 
+tidy_p1748<-separate(tidy_p1748, gt_AD, sep= ",", into =c("ref_DP", "alt_DP"), remove=TRUE)
+tidy_p1748<-mutate_at(tidy_p1748, c(10:11), as.numeric)
+tidy_p1748<-mutate(tidy_p1748, alt_ratio= alt_DP/(ref_DP + alt_DP))
+write.csv(tidy_p1748,file="~/Desktop/scVar/MDS/tidy_p1748", row.names = FALSE)
+
+vcf_p1843<-read.vcfR("~/Desktop/scVar/MDS/p1843.unfiltered.vcf.gz",verbose = FALSE)
+tidy_p1843<-vcfR2tidy(vcf_p1843,single_frame = TRUE) 
+tidy_p1843<-tidy_p1843$dat 
+tidy_p1843<-select(tidy_p1843, CHROM, POS, REF, ALT, QUAL, FILTER, DP, MQ, QD, gt_AD, gt_GT_alleles)
+colnames(tidy_p1843)<-c("Chr", "Start", "Ref", "Alt", "QUAL","filter", "DP","MQ", "QD", "gt_AD", "gt_alleles") 
+tidy_p1843<-separate(tidy_p1843, gt_AD, sep= ",", into =c("ref_DP", "alt_DP"), remove=TRUE)
+tidy_p1843<-mutate_at(tidy_p1843, c(10:11), as.numeric)
+tidy_p1843<-mutate(tidy_p1843, alt_ratio= alt_DP/(ref_DP + alt_DP))
+write.csv(tidy_p1843,file="~/Desktop/scVar/MDS/tidy_p1843", row.names = FALSE)
+```
+
+```{r load_vcf}
+vcf_list_MDS <-
+  list.files("~/Desktop/scVar/MDS",
+             pattern =  "tidy_*",
+             full.names = TRUE)  %>%
+  set_names(nm = (basename(.))) %>%
+  map(fread)
+```
+
+```{r generate_vcf,echo=FALSE, message=FALSE, warning=FALSE}
+basenm<-c("p1236", "p1485", "p1595", "p1726", "p1748", "p1843")
+generate_vcf<-function(a, b, c,d) {
+  annotated<-left_join(a, b, by=c("Chr","Start","Ref", "Alt"))%>%mutate(Germline=case_when(avsnp147=="."~"FALSE", avsnp147 != "." ~"TRUE"))%>%mutate(RNA_edit=case_when(editted=="Yes"~"TRUE", TRUE ~ "FALSE"))%>%left_join(c,  by="Gene.refGene")%>%mutate(in_pulldown=case_when(total_baits > 0 ~ "TRUE", TRUE ~"FALSE"))%>%right_join(d,by=c("Chr", "Start", "Ref", "Alt"))
+}
+
+full_vcfs_list_MDS <- map2(
+  .x = annotation_list,
+  .y = vcf_list_MDS,
+  .f = ~ generate_vcf(.x, A_to_I_table, Jordan_final.gene_metadata, .y)
+)
+names(full_vcfs_list_MDS)<-basenm
+
+###CHECK the numbers here before filter changed this from depth of 50 to 10
+
+filtered_vcf_list_MDS<-map(full_vcfs_list_MDS, ~filter(.x, (QUAL >=50 & alt_DP>10 & ref_DP>10 & alt_ratio<.8) | (in_pulldown=="TRUE" & DP>5 &alt_ratio<.9)))
+
+filtered_vcf_list_MDS <-
+  map(filtered_vcf_list_MDS, ~ mutate(
+    .x,
+    filter = case_when(
+      Germline == "TRUE" & in_pulldown == "FALSE" &
+        RNA_edit == "FALSE" ~ "GL",
+      RNA_edit == "TRUE" &
+        in_pulldown == "FALSE" & Germline == "FALSE" ~ "RE",
+      in_pulldown == "TRUE" &
+        Germline == "FALSE" & RNA_edit == "FALSE" ~ "PD",
+      Germline == "TRUE" &
+        RNA_edit == "TRUE" & in_pulldown == "FALSE" ~ "GL,RE",
+      Germline == "TRUE" &
+        in_pulldown == "TRUE" & RNA_edit == "FALSE" ~ "GL, PD",
+      RNA_edit == "TRUE" &
+        in_pulldown == "TRUE" & Germline == "FALSE" ~ "RE,PD",
+      Germline == "TRUE" &
+        RNA_edit == "TRUE" & in_pulldown == "TRUE" ~ "GL,RE,PD"
+    )
+  ))
+
+#Generating an interval list to use with GATK select variants
+#this is only going over one file in the list not each file in the list
+
+interval_list_MDS <- map(filtered_vcf_list_MDS, ~select(.x, Chr, Start) %>% mutate(stop = Start + 1) %>% mutate(interval = paste0(Chr, ":", Start, "-", stop)) %>% select(interval))
+
+file_out<-paste0("~/Desktop/scVar/MDS/", names(interval_list_MDS), ".interval.csv")
+write<-walk2(interval_list_MDS, file_out, ~write.table(.x, .y, col.names=FALSE, row.names=FALSE, quote=FALSE))
+
+metadata_list_MDS<-map(filtered_vcf_list_MDS, ~mutate(.x, stop = Start + 1) %>% mutate(interval = paste0(Chr, ":", Start, "-", stop)) %>%mutate(mutation=paste0(Gene.refGene, "_", Chr, ":", Start, ":", Ref, ">", Alt))%>% mutate(variant=paste0(Chr, "_", Start, "_", Ref, "_", Alt)) %>% dplyr::select(interval, mutation, variant, filter, DP, ref_DP, alt_DP, alt_ratio, description, Func.refGene, ExonicFunc.refGene, cosmic70, clinvar_20140702, Gene.refGene, AAChange.refGene))
+file_out2<-paste0("~/Desktop/scVar/MDS/",names(metadata_list_MDS), ".metadata.csv")
+write<-walk2(metadata_list_MDS, file_out2, ~write.csv(.x, .y, row.names=TRUE, quote=FALSE))
+
+```
+
+```{r}
+p1595<-filter(filtered_vcf_list_MDS$p1595, ExonicFunc.refGene=="nonsynonymous SNV")
+p1726<-filter(filtered_vcf_list_MDS$p1726, ExonicFunc.refGene=="nonsynonymous SNV")
+p1748<-filter(filtered_vcf_list_MDS$p1748, ExonicFunc.refGene=="nonsynonymous SNV")
+p1843<-filter(filtered_vcf_list_MDS$p1843, ExonicFunc.refGene=="nonsynonymous SNV")
+p1485<-filter(filtered_vcf_list_MDS$p1485, ExonicFunc.refGene=="nonsynonymous SNV")
+p1236<-filter(filtered_vcf_list_MDS$p1236, ExonicFunc.refGene=="nonsynonymous SNV")
+```
+
+```{r generate_stats_tables,echo=FALSE, message=FALSE, warning=FALSE}
+###**** probably want to generate this automatically####
+tables<-list(`1236.stats.txt`, `1485.stats.txt`, `1595.stats.txt`, `1726.stats.txt`, `1748.stats.txt`, `1843.stats.txt`)
+
+#Loop 1:  
+mutation_summary<- NULL
+for (table in tables){
+  sample_i<-c(table[26,6],table[28,6],table[30,6])
+  if(is.null(mutation_summary)) {
+    mutation_summary<-data.frame(type=c("records", "SNPs", "Indels"),sample=sample_i)
+  } else {
+    mutation_summary<-cbind(mutation_summary, sample_i)
+  }
+}
+
+colnames(mutation_summary)<-c("type", "1236",  "1485",  "1595",  "1726",  "1748", "1843")
+mutation_summary <-data.frame(mutation_summary, row.names = 1)
+kbl(mutation_summary, caption="A summary of mutation number of the different types for each sample")%>%kable_styling()
+#Loop 2: 
+
+full_table <- NULL
+for (table in tables){
+  mutation_type_i <- filter(table, X.=="ST") %>%select(file, was)%>%dplyr::rename(type=file, Sample=was)%>%mutate_at("Sample", as.numeric)
+  
+  # On first iteration, simply store the table generated above
+  if(is.null(full_table)){
+    full_table <- mutation_type_i
+  } else {
+    # On second iteration and beyound, join the table created above to the aggregate
+    full_table <- left_join(full_table, mutation_type_i, by = "type")
+  }
+}
+colnames(full_table)<-c("type", "1236",  "1485",  "1595",  "1726",  "1748", "1843")
+
+#generate a long datframe for plotting and split by type
+df_table<-reshape2::melt(full_table, id.vars="type")
+df_table1<-filter(df_table, variable %in% c ("1236",  "1485",  "1595",  "1726",  "1748", "1843"))
+
+pulldown_datasets=ggplot(data=df_table1, aes(x=type, y=value, fill=type)) +geom_bar(stat="identity") + scale_fill_viridis_d()+ facet_grid(variable~.)+ labs(title="SNV mutation types in pulldown samples")+theme_light()
+
+pulldown_datasets
+
+## for types try filtering on ST line instead of slicing 
+# start here test<-filter(AML01_1p.stats.txt, X. == "ST")
+## still unclear how to pull numbers unless they are always in the same spot.  If so I could try importing into all the numbers into a dataframe this was the code I kept finding to generate the files.  
+##start here "c(AML01_4.stats.txt[26,6],AML01_4.stats.txt[28,6],AML01_4.stats.txt[30,6])
+```
+
+```{r generate_matrix,echo=FALSE, message=FALSE, warning=FALSE}
+source("~/Desktop/Mutation_analysis R/snippets/cellsnp_functions.R")
+# pulling in variants from cellsnp
+p1236_cellsnp<-read_cellsnp("~/Desktop/scVar/mito/cellsnp/p1236/")
+# grabing the alt matrix
+p1236_frame_alt<- as.data.frame(p1236_cellsnp$alt)
+# subsetting the variant to those that are in >10 cells
+p1236_subset_alt<-dplyr::mutate(p1236_frame_alt, cells_per_variant=rowSums(p1236_frame != 0))%>%filter(cells_per_variant >10)%>%select(-cells_per_variant)
+
+# filtering out cells that are not in seurat object
+#building the annotation for the columns (data has 7442 cells, seurat has 5484)
+capture_barcode_clusters <- read_table2("~/Desktop/scVar/mito/MDS_invivo_cluster_barcodes.tsv")
+p1236_barcode_clusters<- filter(capture_barcode_clusters, capture=="htb-1236") 
+# filtering the data to match the cell ID in the seurat object
+p1236_filtered_names <- names(p1236_subset_alt)[(names(p1236_subset_alt) %in% p1236_barcode_clusters$barcode)]
+p1236_filtered_alt <- p1236_subset_alt[, p1236_filtered_names]
+
+
+#add Seurat group
+p1236_bc<-select(p1236_barcode_clusters, barcode, cluster)
+p1236_bc<-t(p1236_bc)
+colnames(p1236_bc)<-p1236_bc[1,]
+p1236_bc<-as.data.frame(p1236_bc)
+remove<-c("barcode")
+p1236_bc<-p1236_bc[!(row.names(p1236_bc) %in% remove), ]
+
+
+#remove rows that are different between 2 dataframes
+filtered_barcodes<-names(p1236_filtered_alt)
+p1236_bc_filtered <- names(p1236_bc)[(names(p1236_bc) %in% filtered_barcodes)]
+p1236_bc <- p1236_bc[, p1236_bc_filtered]
+
+#add the seurat group
+p1236_filtered_alt<-rbind(p1236_bc, p1236_filtered_alt)
+
+
+# add full length mutation name
+p1236_annotation<-select(test, mutation, variant, ExonicFunc.refGene)
+p1236_filtered_alt<-rownames_to_column(p1236_filtered_alt, var="variant")
+
+data_p1236_alt<-full_join(p1236_annotation, p1236_filtered_alt, by="variant")
+
+
+# grabing the ref matrix and keeping the variants in the alt file
+p1236_frame_ref<- as.data.frame(p1236_cellsnp$ref)
+# subsetting the variant to those that are in >10 cells
+p1236_subset_ref<-dplyr::mutate(p1236_frame_alt, cells_per_variant=rowSums(p1236_frame_alt != 0))%>%filter(cells_per_variant >10)%>%select(-cells_per_variant)
+
+p1236_filtered_ref <- p1236_subset_ref[, p1236_filtered_names]
+
+p1236_filtered_ref<-rbind(p1236_bc, p1236_filtered_ref)
+
+p1236_filtered_ref<-rownames_to_column(p1236_filtered_ref, var="variant")
+data_p1236_ref<-full_join(p1236_annotation, p1236_filtered_ref, by="variant")
+
+#EZH2
+#pull out mutations of interest and transform to perform stats
+#filtering 1 mutant
+p1236_EZH2<-data_p1236_alt %>% filter(variant== "chr7_148811741_A_G" |variant== "cluster")
+p1236_EZH2[2,1]<-"cluster"
+p1236_EZH2<-column_to_rownames(p1236_EZH2,var="mutation")%>%select(-variant,-ExonicFunc.refGene)
+p1236_EZH2_alt<-data.frame(t(p1236_EZH2))
+
+
+#Generate the number of cells per cluster
+table(p1236_EZH2_alt$cluster)
+#determine which counts are present typically 1 and 2
+table(p1236_EZH2_alt$EZH2_chr7.148811741.A.G)
+#Filter out the cells with counts
+p1236_EZH2_alt_count<-filter(p1236_EZH2_alt, `EZH2_chr7.148811741.A.G`=="1" | `EZH2_chr7.148811741.A.G`=="2"| `EZH2_chr7.148811741.A.G`=="3")
+table(p1236_EZH2_alt_count$cluster)
+### there were only 8 cells with this mutation so the data is not good enough I will screen the others before going through the code
+p1236_test<-dplyr::mutate(p1236_frame, cells_per_variant=rowSums(p1236_frame != 0))%>%filter(cells_per_variant >10)%>%select(cells_per_variant)
+
+#RUNX1_alt
+p1236_RUNX1_alt<-data_p1236_alt %>% filter(variant== "chr21_34792108_G_T" |variant== "cluster")
+p1236_RUNX1_alt[2,1]<-"cluster"
+p1236_RUNX1_alt<-column_to_rownames(p1236_RUNX1_alt,var="mutation")%>%select(-variant,-ExonicFunc.refGene)
+p1236_RUNX1_alt<-data.frame(t(p1236_RUNX1_alt))
+
+#Generate the number of cells per cluster
+table(p1236_RUNX1_alt$cluster)
+#determine which counts are present typically 1 and 2
+table(p1236_RUNX1_alt$RUNX1_chr21.34792108.G.T)
+#Filter out the cells with counts
+p1236_RUNX1_alt_count<-filter(p1236_RUNX1_alt, `RUNX1_chr21.34792108.G.T`=="1" | `RUNX1_chr21.34792108.G.T`=="2"| `RUNX1_chr21.34792108.G.T`=="3")
+table(p1236_RUNX1_alt_count$cluster)
+
+#RUNX1_ref
+p1236_RUNX1_ref<-data_p1236_ref%>% filter(variant== "chr21_34792108_G_T" |variant== "cluster")
+p1236_RUNX1_ref[2,1]<-"cluster"
+p1236_RUNX1_ref<-column_to_rownames(p1236_RUNX1_ref,var="mutation")%>%select(-variant,-ExonicFunc.refGene)
+p1236_RUNX1_ref<-data.frame(t(p1236_RUNX1_ref))
+
+#Generate the number of cells per cluster
+table(p1236_RUNX1_ref$cluster)
+#determine which counts are present typically 1 and 2
+table(p1236_RUNX1_ref$RUNX1_chr21.34792108.G.T)
+#Filter out the cells with counts
+p1236_RUNX1_ref_count<-filter(p1236_RUNX1_ref, `RUNX1_chr21.34792108.G.T`=="1" | `RUNX1_chr21.34792108.G.T`=="2"| `RUNX1_chr21.34792108.G.T`=="3")
+table(p1236_RUNX1_ref_count$cluster)
+
+```
+
+```{r generate_matrix2,echo=FALSE, message=FALSE, warning=FALSE}
+####Goal of this block of code is to pull in the alt and ref matrix from cell snp and combine it with information from Seurat, and metadata to determine the profile of variants across different cell types. I forsee there being 2 functions here, one to generate the final matrix for each input file (or a list of them) and one to either query a mutation of interest or generate a datatable with data for all variants. I am struggling most with manipulating the large matrix with multiple annotations on it and keep having to add and remove rownames and transform to perform the tasks I want to do.  All of the data sets and software are in the test data folder  ###
+
+
+###STEP 1 generating a matrix, currently I am doing this for alt and ref independently because they need treated differently see below
+
+#load the cell_snp_function code from snippets
+source("~/Desktop/Mutation_analysis R/snippets/cellsnp_functions.R")
+# pulling in variants from cellsnp
+p1236_cellsnp<-read_cellsnp("~/Desktop/scVar/mito/cellsnp/p1236/")
+##There will be multiple files here in the future so these could be loaded and manipulated into a list
+
+#load the alternate and reference matrices from the object above
+p1236_frame_alt<- as.data.frame(p1236_cellsnp$alt)
+p1236_frame_ref<- as.data.frame(p1236_cellsnp$ref)
+
+# subsetting the variant to those that are in >10 cells (maybe we want this to be higher in this analysis 100 or 200 seems more appropriate here since we need coverage of multiple clusters)
+p1236_subset_alt<-dplyr::mutate(p1236_frame_alt, cells_per_variant=rowSums(p1236_frame != 0))%>%filter(cells_per_variant >10)%>%select(-cells_per_variant)
+
+#subsetting the ref list to match the alt list
+p1236_subset_alt<-rownames_to_column(p1236_subset_alt,var = "location")
+p1236_subset_ref<-rownames_to_column(p1236_frame_ref, var="location")
+p1236_subset_ref<-p1236_subset_ref[match(p1236_subset_alt$location, p1236_subset_ref$location),]
+
+p1236_subset_alt<-column_to_rownames(p1236_subset_alt,var = "location")
+row.names(p1236_subset_ref) <- NULL
+p1236_subset_ref<-column_to_rownames(p1236_subset_ref,var = "location")
+#can be useful here to use code like this to ensure that your matrices are different
+#test<-dplyr::mutate(p1236_subset_alt, cells_per_variant=rowSums(p1236_subset_alt != 0))%>%select(location, cells_per_variant)
+
+
+#matching the variant call matrix barcodes to the seurat object.  The barcode list I had when I called variants had 13204 barcodes in it and Krysta's object in Seurat has many monre.   
+#generate a list of barcodes to keep
+
+capture_barcode_clusters <- read_table2("~/Desktop/scVar/mito/MDS_invivo_cluster_barcodes.tsv")
+p1236_barcode_clusters<- filter(capture_barcode_clusters, capture=="htb-1236")
+##yields 3568 barcodes in Krysta's Seurat object
+
+# filtering the data to match the cell ID in the seurat object
+p1236_filtered_names <- names(p1236_subset_alt)[(names(p1236_subset_alt) %in% p1236_barcode_clusters$barcode)]
+
+p1236_filtered_alt <- p1236_subset_alt[, p1236_filtered_names]
+##yields 3547 barcodes that are both my data and krysta's dataset (usually this doesn't need to be multiple steps but our barcode lists were quite different)
+p1236_filtered_ref<-p1236_subset_ref[, p1236_filtered_names]
+
+#Generate Seurat group dataframe with the cell id to add to matrices
+seurat_groups<-select(p1236_barcode_clusters, barcode, cluster)
+seurat_groups<-t(seurat_groups)
+colnames(seurat_groups)<-seurat_groups[1,]
+seurat_groups<-as.data.frame(seurat_groups)
+remove<-c("barcode")
+seurat_groups<-seurat_groups[!(row.names(seurat_groups) %in% remove), ]
+
+#remove rows that are different between 2 dataframes (figure out where I am losing variant info)
+filtered_barcodes<-names(p1236_filtered_alt)
+seurat_groups_filtered <- names(seurat_groups)[(names(seurat_groups) %in% filtered_barcodes)]
+seurat_groups <- seurat_groups[, seurat_groups_filtered]
+
+#add the seurat group (need to remove location to rowname before binding)
+p1236_filtered_alt<-rbind(p1236_bc, p1236_filtered_alt)
+p1236_filtered_ref<-rbind(p1236_bc, p1236_filtered_ref)
+
+# add full length mutation name to alt from the metadata file, this gives a usable variant name other columns could be imported here to filter as well
+p1236_annotation<-select(metadata_list_MDS$p1236, mutation, variant, ExonicFunc.refGene)
+p1236_filtered_alt<-rownames_to_column(p1236_filtered_alt, var="variant")
+data_p1236_alt<-full_join(p1236_annotation, p1236_filtered_alt, by="variant")
+
+# add full length mutation name to ref
+p1236_filtered_ref<-rownames_to_column(p1236_filtered_ref, var="variant")
+data_p1236_ref<-full_join(p1236_annotation, p1236_filtered_ref, by="variant")
+##This yields workable matrices for alt and ref.  With both the cluster ID and the cell ID as annotations in the rows it gets a little unwieldy but as the clusters aren't unique they can't be col.names.
+
+
+
+###STEP 2  Here I am pulling out one variant of interest.  It would be good if this could be either the input to a function or if all variant positions could go through this process.
+
+##RUNX1_alt
+## cluster information needs to be kept at this step
+p1236_RUNX1_alt<-data_p1236_alt %>% filter(variant== "chr21_34792108_G_T" |variant== "cluster")
+## the data label need to be copied to allow the mutation column to be moved to the rowname empty columns can't be rownames
+p1236_RUNX1_alt[2,1]<-"cluster"
+p1236_RUNX1_alt<-column_to_rownames(p1236_RUNX1_alt,var="mutation")%>%select(-variant,-ExonicFunc.refGene)
+#data is transformed here to allow for table functions etx that only work on long data
+p1236_RUNX1_alt<-data.frame(t(p1236_RUNX1_alt))
+
+#Generate the number of cells per cluster this is total cells not the number of cells with counts
+table(p1236_RUNX1_alt$cluster)
+#determine which counts are present currently the counts are in the wrong class chr instead of dbl otherwise you could use filter >0
+table(p1236_RUNX1_alt$RUNX1_chr21.34792108.G.T)
+#Filter out the cells with counts
+p1236_RUNX1_alt_count<-filter(p1236_RUNX1_alt, `RUNX1_chr21.34792108.G.T`=="1" | `RUNX1_chr21.34792108.G.T`=="2"| `RUNX1_chr21.34792108.G.T`=="3" |  `RUNX1_chr21.34792108.G.T`=="4")
+##This yields the number of mutations per cluster
+table(p1236_RUNX1_alt_count$cluster)
+
+#RUNX1_ref
+p1236_RUNX1_ref<-data_p1236_ref%>% filter(variant== "chr21_34792108_G_T" |variant== "cluster")
+p1236_RUNX1_ref[2,1]<-"cluster"
+p1236_RUNX1_ref<-column_to_rownames(p1236_RUNX1_ref,var="mutation")%>%select(-variant,-ExonicFunc.refGene)
+p1236_RUNX1_ref<-data.frame(t(p1236_RUNX1_ref))
+
+#Generate the number of cells per cluster(should match alt table)
+table(p1236_RUNX1_ref$cluster)
+#determine which counts are present typically 1 and 2
+table(p1236_RUNX1_ref$RUNX1_chr21.34792108.G.T)
+#Filter out the cells with counts
+p1236_RUNX1_ref_count<-filter(p1236_RUNX1_ref, `RUNX1_chr21.34792108.G.T`=="1" | `RUNX1_chr21.34792108.G.T`=="2"| `RUNX1_chr21.34792108.G.T`=="3")
+table(p1236_RUNX1_ref_count$cluster)
+
+
+##The above code can give us the number of cells with a ref call in each cluster, the number of alt calls in each cluster but some cells have both so the math is more complicated then just adding the 2 together and calculating the percentage.  I strained my brain around and around about how to calculate this.  The best I could come up with was below where I made the data tables above mergable did an inner join to determine the number of cells with both an alt and ref which can then be table to calculate cells in each cluster that have both allele.  This can then be subtracted from the total cells with counts per cluster to yield the final denominator here.  So basically I table the alt and ref counts per cluster and sum them to yield total cells.  Then I would take number of overlapping cells in each cluster (with both alt and ref counts) and subtract from the total cells with counts so that some cells are not counted twice to yield an adjusted total cell per cluster.  Then the percentage mutant per cluster would be #cells with a mut call per cluster/adjusted total cell per cluster.  The wt cell percentage would be 1-mut as we only want to count cells with only wt counts here.   Currently these are just generating the numbers tables for each of these outputs but ideally these outputs could be used to generate a table of some type.  Brett was thinking stacked barplots of wildtype and mutant cells per cluster, so maybe a melted long format table.  We also need to be able to see the counts of both wildtype and mutant per cluster to determine if there are enough counts to be informative per variant.  The percentages alone can be misleading if there are only a few cells with counts in a cluster.  
+
+#calculate the percentage of variant cells 
+
+p1236_RUNX1_alt_count<-rownames_to_column(p1236_RUNX1_alt_count, var="mutation")
+p1236_RUNX1_ref_count<-rownames_to_column(p1236_RUNX1_ref_count, var="mutation")
+#p1236_RUNX1_summary<-full_join(p1236_RUNX1_alt_count,p1236_RUNX1_ref_count, by="mutation")
+p1236_RUNX1_overlap<-inner_join(p1236_RUNX1_alt_count,p1236_RUNX1_ref_count, by="mutation")
+#This can be tabled to remove the mixed cells from the totals for each cluster
+```
