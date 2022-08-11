@@ -41,20 +41,29 @@ p1236_cellsnp<-read_cellsnp("~/Desktop/scVar/mito/cellsnp/p1236/")
 ##There will be multiple files here in the future so these could be loaded and manipulated into a list
 
 #load the alternate and reference matrices from the object above
-p1236_frame_alt<- as.data.frame(p1236_cellsnp$alt)
-p1236_frame_ref<- as.data.frame(p1236_cellsnp$ref)
+p1236_frame_alt <- as.data.frame(p1236_cellsnp$alt)
+p1236_frame_ref <- as.data.frame(p1236_cellsnp$ref)
+
 
 # subsetting the variant to those that are in >10 cells (maybe we want this to be higher in this analysis 100 or 200 seems more appropriate here since we need coverage of multiple clusters)
-p1236_subset_alt<-dplyr::mutate(p1236_frame_alt, cells_per_variant=rowSums(p1236_frame != 0))%>%filter(cells_per_variant >10)%>%select(-cells_per_variant)
+p1236_subset_alt <-
+  dplyr::mutate(p1236_frame_alt, cells_per_variant = rowSums(p1236_frame != 0)) %>%
+  filter(cells_per_variant > 10) %>% select(-cells_per_variant)
 
 #subsetting the ref list to match the alt list
-p1236_subset_alt<-rownames_to_column(p1236_subset_alt,var = "location")
-p1236_subset_ref<-rownames_to_column(p1236_frame_ref, var="location")
-p1236_subset_ref<-p1236_subset_ref[match(p1236_subset_alt$location, p1236_subset_ref$location),]
+p1236_subset_alt <-
+  rownames_to_column(p1236_subset_alt, var = "location")
+p1236_subset_ref <-
+  rownames_to_column(p1236_frame_ref, var = "location")
+p1236_subset_ref <-
+  p1236_subset_ref[match(p1236_subset_alt$location, p1236_subset_ref$location), ]
 
-p1236_subset_alt<-column_to_rownames(p1236_subset_alt,var = "location")
+
+p1236_subset_alt <-
+  column_to_rownames(p1236_subset_alt, var = "location")
 row.names(p1236_subset_ref) <- NULL
-p1236_subset_ref<-column_to_rownames(p1236_subset_ref,var = "location")
+p1236_subset_ref <-
+  column_to_rownames(p1236_subset_ref, var = "location")
 #can be useful here to use code like this to ensure that your matrices are different
 #test<-dplyr::mutate(p1236_subset_alt, cells_per_variant=rowSums(p1236_subset_alt != 0))%>%select(location, cells_per_variant)
 
@@ -62,42 +71,55 @@ p1236_subset_ref<-column_to_rownames(p1236_subset_ref,var = "location")
 #matching the variant call matrix barcodes to the seurat object.  The barcode list I had when I called variants had 13204 barcodes in it and Krysta's object in Seurat has many monre.   
 #generate a list of barcodes to keep
 
-capture_barcode_clusters <- read_table2("~/Desktop/scVar/mito/MDS_invivo_cluster_barcodes.tsv")
-p1236_barcode_clusters<- filter(capture_barcode_clusters, capture=="htb-1236")
+capture_barcode_clusters <-
+  read_table2("~/Desktop/scVar/mito/MDS_invivo_cluster_barcodes.tsv")
+p1236_barcode_clusters <-
+  filter(capture_barcode_clusters, capture == "htb-1236")
 ##yields 3568 barcodes in Krysta's Seurat object
 
 # filtering the data to match the cell ID in the seurat object
-p1236_filtered_names <- names(p1236_subset_alt)[(names(p1236_subset_alt) %in% p1236_barcode_clusters$barcode)]
+p1236_filtered_names <-
+  names(p1236_subset_alt)[(names(p1236_subset_alt) %in% p1236_barcode_clusters$barcode)]
 
 p1236_filtered_alt <- p1236_subset_alt[, p1236_filtered_names]
 ##yields 3547 barcodes that are both my data and krysta's dataset (usually this doesn't need to be multiple steps but our barcode lists were quite different)
-p1236_filtered_ref<-p1236_subset_ref[, p1236_filtered_names]
+p1236_filtered_ref <- p1236_subset_ref[, p1236_filtered_names]
 
 #Generate Seurat group dataframe with the cell id to add to matrices
-seurat_groups<-select(p1236_barcode_clusters, barcode, cluster)
-seurat_groups<-t(seurat_groups)
-colnames(seurat_groups)<-seurat_groups[1,]
-seurat_groups<-as.data.frame(seurat_groups)
-remove<-c("barcode")
-seurat_groups<-seurat_groups[!(row.names(seurat_groups) %in% remove), ]
+seurat_groups <- select(p1236_barcode_clusters, barcode, cluster)
+seurat_groups <- t(seurat_groups)
+colnames(seurat_groups) <- seurat_groups[1, ]
+seurat_groups <- as.data.frame(seurat_groups)
+remove <- c("barcode")
+seurat_groups <-
+  seurat_groups[!(row.names(seurat_groups) %in% remove),]
 
 #remove rows that are different between 2 dataframes (figure out where I am losing variant info)
-filtered_barcodes<-names(p1236_filtered_alt)
-seurat_groups_filtered <- names(seurat_groups)[(names(seurat_groups) %in% filtered_barcodes)]
+filtered_barcodes <- names(p1236_filtered_alt)
+seurat_groups_filtered <-
+  names(seurat_groups)[(names(seurat_groups) %in% filtered_barcodes)]
 seurat_groups <- seurat_groups[, seurat_groups_filtered]
 
 #add the seurat group (need to remove location to rowname before binding)
-p1236_filtered_alt<-rbind(p1236_bc, p1236_filtered_alt)
-p1236_filtered_ref<-rbind(p1236_bc, p1236_filtered_ref)
+p1236_filtered_alt <- rbind(p1236_bc, p1236_filtered_alt)
+p1236_filtered_ref <- rbind(p1236_bc, p1236_filtered_ref)
 
 # add full length mutation name to alt from the metadata file, this gives a usable variant name other columns could be imported here to filter as well
-p1236_annotation<-select(metadata_list_MDS$p1236, mutation, variant, ExonicFunc.refGene)
-p1236_filtered_alt<-rownames_to_column(p1236_filtered_alt, var="variant")
-data_p1236_alt<-full_join(p1236_annotation, p1236_filtered_alt, by="variant")
+p1236_annotation <-
+  select(metadata_list_MDS$p1236,
+         mutation,
+         variant,
+         ExonicFunc.refGene)
+p1236_filtered_alt <-
+  rownames_to_column(p1236_filtered_alt, var = "variant")
+data_p1236_alt <-
+  full_join(p1236_annotation, p1236_filtered_alt, by = "variant")
 
 # add full length mutation name to ref
-p1236_filtered_ref<-rownames_to_column(p1236_filtered_ref, var="variant")
-data_p1236_ref<-full_join(p1236_annotation, p1236_filtered_ref, by="variant")
+p1236_filtered_ref <-
+  rownames_to_column(p1236_filtered_ref, var = "variant")
+data_p1236_ref <-
+  full_join(p1236_annotation, p1236_filtered_ref, by = "variant")
 ##This yields workable matrices for alt and ref.  With both the cluster ID and the cell ID as annotations in the rows it gets a little unwieldy but as the clusters aren't unique they can't be col.names.
 
 
@@ -106,44 +128,65 @@ data_p1236_ref<-full_join(p1236_annotation, p1236_filtered_ref, by="variant")
 
 ##RUNX1_alt
 ## cluster information needs to be kept at this step
-p1236_RUNX1_alt<-data_p1236_alt %>% filter(variant== "chr21_34792108_G_T" |variant== "cluster")
+p1236_RUNX1_alt <-
+  data_p1236_alt %>% filter(variant == "chr21_34792108_G_T" |
+                              variant == "cluster")
 ## the data label need to be copied to allow the mutation column to be moved to the rowname empty columns can't be rownames
-p1236_RUNX1_alt[2,1]<-"cluster"
-p1236_RUNX1_alt<-column_to_rownames(p1236_RUNX1_alt,var="mutation")%>%select(-variant,-ExonicFunc.refGene)
+p1236_RUNX1_alt[2, 1] <- "cluster"
+p1236_RUNX1_alt <-
+  column_to_rownames(p1236_RUNX1_alt, var = "mutation") %>% select(-variant, -ExonicFunc.refGene)
 #data is transformed here to allow for table functions etx that only work on long data
-p1236_RUNX1_alt<-data.frame(t(p1236_RUNX1_alt))
+p1236_RUNX1_alt <- data.frame(t(p1236_RUNX1_alt))
 
 #Generate the number of cells per cluster this is total cells not the number of cells with counts
 table(p1236_RUNX1_alt$cluster)
 #determine which counts are present currently the counts are in the wrong class chr instead of dbl otherwise you could use filter >0
 table(p1236_RUNX1_alt$RUNX1_chr21.34792108.G.T)
 #Filter out the cells with counts
-p1236_RUNX1_alt_count<-filter(p1236_RUNX1_alt, `RUNX1_chr21.34792108.G.T`=="1" | `RUNX1_chr21.34792108.G.T`=="2"| `RUNX1_chr21.34792108.G.T`=="3" |  `RUNX1_chr21.34792108.G.T`=="4")
+p1236_RUNX1_alt_count <-
+  filter(
+    p1236_RUNX1_alt,
+    `RUNX1_chr21.34792108.G.T` == "1" |
+      `RUNX1_chr21.34792108.G.T` == "2" |
+      `RUNX1_chr21.34792108.G.T` == "3" |
+      `RUNX1_chr21.34792108.G.T` == "4"
+  )
 ##This yields the number of mutations per cluster
 table(p1236_RUNX1_alt_count$cluster)
 
 #RUNX1_ref
-p1236_RUNX1_ref<-data_p1236_ref%>% filter(variant== "chr21_34792108_G_T" |variant== "cluster")
-p1236_RUNX1_ref[2,1]<-"cluster"
-p1236_RUNX1_ref<-column_to_rownames(p1236_RUNX1_ref,var="mutation")%>%select(-variant,-ExonicFunc.refGene)
-p1236_RUNX1_ref<-data.frame(t(p1236_RUNX1_ref))
+p1236_RUNX1_ref <-
+  data_p1236_ref %>% filter(variant == "chr21_34792108_G_T" |
+                              variant == "cluster")
+p1236_RUNX1_ref[2, 1] <- "cluster"
+p1236_RUNX1_ref <-
+  column_to_rownames(p1236_RUNX1_ref, var = "mutation") %>% select(-variant, -ExonicFunc.refGene)
+p1236_RUNX1_ref <- data.frame(t(p1236_RUNX1_ref))
 
 #Generate the number of cells per cluster(should match alt table)
 table(p1236_RUNX1_ref$cluster)
 #determine which counts are present typically 1 and 2
 table(p1236_RUNX1_ref$RUNX1_chr21.34792108.G.T)
 #Filter out the cells with counts
-p1236_RUNX1_ref_count<-filter(p1236_RUNX1_ref, `RUNX1_chr21.34792108.G.T`=="1" | `RUNX1_chr21.34792108.G.T`=="2"| `RUNX1_chr21.34792108.G.T`=="3")
+p1236_RUNX1_ref_count <-
+  filter(
+    p1236_RUNX1_ref,
+    `RUNX1_chr21.34792108.G.T` == "1" |
+      `RUNX1_chr21.34792108.G.T` == "2" | `RUNX1_chr21.34792108.G.T` == "3"
+  )
 table(p1236_RUNX1_ref_count$cluster)
 
 
-##The above code can give us the number of cells with a ref call in each cluster, the number of alt calls in each cluster but some cells have both so the math is more complicated then just adding the 2 together and calculating the percentage.  I strained my brain around and around about how to calculate this.  The best I could come up with was below where I made the data tables above mergable did an inner join to determine the number of cells with both an alt and ref which can then be table to calculate cells in each cluster that have both allele.  This can then be subtracted from the total cells with counts per cluster to yield the final denominator here.  So basically I table the alt and ref counts per cluster and sum them to yield total cells.  Then I would take number of overlapping cells in each cluster (with both alt and ref counts) and subtract from the total cells with counts so that some cells are not counted twice to yield an adjusted total cell per cluster.  Then the percentage mutant per cluster would be #cells with a mut call per cluster/adjusted total cell per cluster.  The wt cell percentage would be 1-mut as we only want to count cells with only wt counts here.   Currently these are just generating the numbers tables for each of these outputs but ideally these outputs could be used to generate a table of some type.  Brett was thinking stacked barplots of wildtype and mutant cells per cluster, so maybe a melted long format table.  We also need to be able to see the counts of both wildtype and mutant per cluster to determine if there are enough counts to be informative per variant.  The percentages alone can be misleading if there are only a few cells with counts in a cluster.  
+##The above code can give us the number of cells with a ref call in each cluster, the number of alt calls in each cluster but some cells have both so the math is more complicated then just adding the 2 together and calculating the percentage.  I strained my brain around and around about how to calculate this.  The best I could come up with was below where I made the data tables above mergable did an inner join to determine the number of cells with both an alt and ref which can then be table to calculate cells in each cluster that have both allele.  This can then be subtracted from the total cells with counts per cluster to yield the final denominator here.  So basically I table the alt and ref counts per cluster and sum them to yield total cells.  Then I would take number of overlapping cells in each cluster (with both alt and ref counts) and subtract from the total cells with counts so that some cells are not counted twice to yield an adjusted total cell per cluster.  Then the percentage mutant per cluster would be #cells with a mut call per cluster/adjusted total cell per cluster.  The wt cell percentage would be 1-mut as we only want to count cells with only wt counts here.   Currently these are just generating the numbers tables for each of these outputs but ideally these outputs could be used to generate a table of some type.  Brett was thinking stacked barplots of wildtype and mutant cells per cluster, so maybe a melted long format table.  We also need to be able to see the counts of both wildtype and mutant per cluster to determine if there are enough counts to be informative per variant.  The percentages alone can be misleading if there are only a few cells with counts in a cluster.
 
-#calculate the percentage of variant cells 
+#calculate the percentage of variant cells
 
-p1236_RUNX1_alt_count<-rownames_to_column(p1236_RUNX1_alt_count, var="mutation")
-p1236_RUNX1_ref_count<-rownames_to_column(p1236_RUNX1_ref_count, var="mutation")
+p1236_RUNX1_alt_count <-
+  rownames_to_column(p1236_RUNX1_alt_count, var = "mutation")
+p1236_RUNX1_ref_count <-
+  rownames_to_column(p1236_RUNX1_ref_count, var = "mutation")
 #p1236_RUNX1_summary<-full_join(p1236_RUNX1_alt_count,p1236_RUNX1_ref_count, by="mutation")
-p1236_RUNX1_overlap<-inner_join(p1236_RUNX1_alt_count,p1236_RUNX1_ref_count, by="mutation")
+p1236_RUNX1_overlap <-
+  inner_join(p1236_RUNX1_alt_count, p1236_RUNX1_ref_count, by = "mutation")
 #This can be tabled to remove the mixed cells from the totals for each cluster
 ```
