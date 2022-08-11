@@ -35,7 +35,7 @@ library(vtable)
 ###STEP 1 generating a matrix, currently I am doing this for alt and ref independently because they need treated differently see below
 
 #load the cell_snp_function code from snippets
-source("~/Desktop/Mutation_analysis R/snippets/cellsnp_functions.R")
+source("~/Documents/JordanLab/snippets/cellsnp_functions.R")
 # pulling in variants from cellsnp
 p1236_cellsnp<-read_cellsnp("~/Desktop/scVar/mito/cellsnp/p1236/")
 ##There will be multiple files here in the future so these could be loaded and manipulated into a list
