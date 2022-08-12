@@ -32,54 +32,73 @@ library(vtable)
 ####Goal of this block of code is to pull in the alt and ref matrix from cell snp and combine it with information from Seurat, and metadata to determine the profile of variants across different cell types. I forsee there being 2 functions here, one to generate the final matrix for each input file (or a list of them) and one to either query a mutation of interest or generate a datatable with data for all variants. I am struggling most with manipulating the large matrix with multiple annotations on it and keep having to add and remove rownames and transform to perform the tasks I want to do.  All of the data sets and software are in the test data folder  ###
 
 
-###STEP 1 generating a matrix, currently I am doing this for alt and ref independently because they need treated differently see below
+### STEP 1 generating a matrix, currently I am doing this for alt and ref independently because they need treated differently see below
 
-#load the cell_snp_function code from snippets
-source("~/Desktop/Mutation_analysis R/snippets/cellsnp_functions.R")
+# load the cell_snp_function code from snippets
+source("~/1A_Jordan_Lab/monica-coding-help/test_data/cellsnp_functions.R")
+
 # pulling in variants from cellsnp
-p1236_cellsnp<-read_cellsnp("~/Desktop/scVar/mito/cellsnp/p1236/")
-##There will be multiple files here in the future so these could be loaded and manipulated into a list
+p1236_cellsnp <- 
+  read_cellsnp("~/1A_Jordan_Lab/monica-coding-help/test_data/p1236/")
+## There will be multiple files here in the future so these could be loaded and
+# manipulated into a list
 
-#load the alternate and reference matrices from the object above
+# load the alternate and reference matrices from the object above
 p1236_frame_alt<- as.data.frame(p1236_cellsnp$alt)
 p1236_frame_ref<- as.data.frame(p1236_cellsnp$ref)
 
-# subsetting the variant to those that are in >10 cells (maybe we want this to be higher in this analysis 100 or 200 seems more appropriate here since we need coverage of multiple clusters)
-p1236_subset_alt<-dplyr::mutate(p1236_frame_alt, cells_per_variant=rowSums(p1236_frame != 0))%>%filter(cells_per_variant >10)%>%select(-cells_per_variant)
+# Subsetting the variant to those that are in >10 cells (maybe we want this to be higher in this analysis 100 or 200 seems more appropriate here since we need coverage of multiple clusters)
+p1236_subset_alt <-
+  dplyr::mutate(
+    p1236_frame_alt, 
+    # p1236_frame_alt? (was p1236_frame)
+    cells_per_variant = rowSums(p1236_frame_alt != 0)
+    ) %>% 
+  filter(cells_per_variant >10) %>% 
+  select(-cells_per_variant)
 
 #subsetting the ref list to match the alt list
-p1236_subset_alt<-rownames_to_column(p1236_subset_alt,var = "location")
-p1236_subset_ref<-rownames_to_column(p1236_frame_ref, var="location")
-p1236_subset_ref<-p1236_subset_ref[match(p1236_subset_alt$location, p1236_subset_ref$location),]
+p1236_subset_alt <- rownames_to_column(p1236_subset_alt, var = "location")
+p1236_subset_ref <- rownames_to_column(p1236_frame_ref, var="location")
+p1236_subset_ref <- 
+  p1236_subset_ref[match(p1236_subset_alt$location, p1236_subset_ref$location),]
 
-p1236_subset_alt<-column_to_rownames(p1236_subset_alt,var = "location")
+p1236_subset_alt <- column_to_rownames(p1236_subset_alt, var = "location")
 row.names(p1236_subset_ref) <- NULL
-p1236_subset_ref<-column_to_rownames(p1236_subset_ref,var = "location")
-#can be useful here to use code like this to ensure that your matrices are different
+p1236_subset_ref<-column_to_rownames(p1236_subset_ref, var = "location")
+# can be useful here to use code like this to ensure that your matrices are different
 #test<-dplyr::mutate(p1236_subset_alt, cells_per_variant=rowSums(p1236_subset_alt != 0))%>%select(location, cells_per_variant)
 
 
 #matching the variant call matrix barcodes to the seurat object.  The barcode list I had when I called variants had 13204 barcodes in it and Krysta's object in Seurat has many monre.   
 #generate a list of barcodes to keep
 
-capture_barcode_clusters <- read_table2("~/Desktop/scVar/mito/MDS_invivo_cluster_barcodes.tsv")
-p1236_barcode_clusters<- filter(capture_barcode_clusters, capture=="htb-1236")
+capture_barcode_clusters <-
+  read_table2(
+    "~/1A_Jordan_Lab/monica-coding-help/test_data/capture_barcode_clusters.tsv"
+    )
+
+p1236_barcode_clusters <- 
+  filter(capture_barcode_clusters, capture == "htb-1236")
 ##yields 3568 barcodes in Krysta's Seurat object
 
 # filtering the data to match the cell ID in the seurat object
-p1236_filtered_names <- names(p1236_subset_alt)[(names(p1236_subset_alt) %in% p1236_barcode_clusters$barcode)]
+p1236_filtered_names <- 
+  names(p1236_subset_alt)[
+    (names(p1236_subset_alt) %in% p1236_barcode_clusters$barcode)
+    ]
 
 p1236_filtered_alt <- p1236_subset_alt[, p1236_filtered_names]
-##yields 3547 barcodes that are both my data and krysta's dataset (usually this doesn't need to be multiple steps but our barcode lists were quite different)
+## yields 3547 barcodes that are both my data and krysta's dataset (usually this doesn't need to be multiple steps but our barcode lists were quite different)
 p1236_filtered_ref<-p1236_subset_ref[, p1236_filtered_names]
 
-#Generate Seurat group dataframe with the cell id to add to matrices
-seurat_groups<-select(p1236_barcode_clusters, barcode, cluster)
-seurat_groups<-t(seurat_groups)
-colnames(seurat_groups)<-seurat_groups[1,]
-seurat_groups<-as.data.frame(seurat_groups)
-remove<-c("barcode")
-seurat_groups<-seurat_groups[!(row.names(seurat_groups) %in% remove), ]
+# Generate Seurat group dataframe with the cell id to add to matrices
+seurat_groups <- select(p1236_barcode_clusters, barcode, cluster)
+seurat_groups <- t(seurat_groups)
+colnames(seurat_groups) <- seurat_groups[1,]
+seurat_groups <- as.data.frame(seurat_groups)
+remove <- c("barcode")
+seurat_groups <- seurat_groups[!(row.names(seurat_groups) %in% remove), ]
 
 #remove rows that are different between 2 dataframes (figure out where I am losing variant info)
 filtered_barcodes<-names(p1236_filtered_alt)
