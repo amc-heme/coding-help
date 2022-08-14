@@ -87,8 +87,8 @@ seurat_groups_filtered <- names(seurat_groups)[(names(seurat_groups) %in% filter
 seurat_groups <- seurat_groups[, seurat_groups_filtered]
 
 #add the seurat group (need to remove location to rowname before binding)
-p1236_filtered_alt<-rbind(p1236_bc, p1236_filtered_alt)
-p1236_filtered_ref<-rbind(p1236_bc, p1236_filtered_ref)
+p1236_filtered_alt<-rbind(seurat_groups, p1236_filtered_alt)
+p1236_filtered_ref<-rbind(seurat_groups, p1236_filtered_ref)
 
 # add full length mutation name to alt from the metadata file, this gives a usable variant name other columns could be imported here to filter as well
 p1236_annotation<-select(metadata_list_MDS$p1236, mutation, variant, ExonicFunc.refGene)
