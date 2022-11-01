@@ -2,6 +2,8 @@
 title: "MDS scVera"
 output: html_document
 date: '2022-08-02'
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -37,7 +39,7 @@ library(vtable)
 #load the cell_snp_function code from snippets
 source("~/Documents/JordanLab/snippets/cellsnp_functions.R")
 # pulling in variants from cellsnp
-p1236_cellsnp<-read_cellsnp("~/Desktop/scVar/mito/cellsnp/p1236/")
+p1236_cellsnp <- read_cellsnp("./raw_data/p1236")
 ##There will be multiple files here in the future so these could be loaded and manipulated into a list
 
 #load the alternate and reference matrices from the object above
